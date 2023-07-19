@@ -6,7 +6,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-public class RequestImpl {
+public class LeagueImpl {
     public HttpResponse<String> getSummonerInfo(String summonerName){
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://lmssplus.com/api/v2/lol/search?q=" + summonerName))

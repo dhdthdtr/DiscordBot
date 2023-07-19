@@ -1,13 +1,13 @@
 package org.example.services;
 
-import org.example.impl.RequestImpl;
+import org.example.impl.LeagueImpl;
 
 import java.net.http.HttpResponse;
 
 public class LeagueServices {
-    private RequestImpl request;
+    private LeagueImpl request;
     public LeagueServices() {
-        request = new RequestImpl();
+        request = new LeagueImpl();
     }
 
     public HttpResponse<String> getSummonerInfo(String summonerName){
