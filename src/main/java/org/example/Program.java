@@ -16,14 +16,21 @@ import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import discord4j.rest.util.Color;
 import discord4j.voice.AudioProvider;
+import org.example.entity.Discord.Guild;
 import org.example.entity.leagueoflegends.Champion;
 import org.example.entity.leagueoflegends.Mastery;
 import org.example.entity.leagueoflegends.Rank;
 import org.example.entity.leagueoflegends.Summoner;
+import org.example.entity.movie.Anime;
+import org.example.entity.movie.IMDb;
 import org.example.interfaces.RankType;
 import org.example.provider.LavaPlayerAudioProvider;
 import org.example.scheduler.TrackScheduler;
+import org.example.services.AnimeServices;
+import org.example.services.GuildServices;
+import org.example.services.IMDBServices;
 import org.example.services.LeagueServices;
+import org.example.utils.MailUtils;
 import org.example.utils.StringUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -31,25 +38,22 @@ import reactor.core.publisher.Mono;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URL;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Program{
-    private static final Map<String, String> commandsHelp = new HashMap<>();
-    private static final String prefix = "!";
+    private static final String prefix = "^";
 
     public static void main(String[] args) {
-        commandsHelp.put("ping", "test bot connection");
-        commandsHelp.put("avatar", "get avatar from author or user if mentioned");
-        commandsHelp.put("myinfo", "get your own information");
-        commandsHelp.put("join", "join your voice channel");
-
+        // services init
         LeagueServices leagueServices = new LeagueServices();
+        AnimeServices animeServices = new AnimeServices();
+        IMDBServices imdbServices = new IMDBServices();
+        GuildServices guildServices = new GuildServices();
 
         // Creates AudioPlayer instances and translates URLs to AudioTrack instances
         final AudioPlayerManager playerManager = new DefaultAudioPlayerManager();
@@ -75,6 +79,7 @@ public class Program{
                     }))
             .then();
 
+            // TODO: --------------- general commands ---------------
             // TODO: avatar
             Mono<Void> handleAvatarCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
@@ -150,54 +155,97 @@ public class Program{
                 return Mono.empty();
             }).then();
 
-            // TODO: pic.re anime pics API
-            Mono<Void> handlePicreCommand = gateway.on(MessageCreateEvent.class, event -> {
+            // TODO: me
+            Mono<Void> handleMeCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
-                if(message.getContent().equalsIgnoreCase("!picre")){
-                    Optional<User> author = message.getAuthor();
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create("https://pic.re/image"))
-                            .method("POST", HttpRequest.BodyPublishers.noBody())
-                            .build();
-                    HttpResponse<String> response = null;
-                    try {
-                        response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    if(author.isPresent()) {
-                        if (response != null) {
-                            try {
-                                String result = response.body();
-                                JSONObject json = new JSONObject(result);
+                if(message.getContent().equalsIgnoreCase(prefix + "author")){
+                    return message.getChannel()
+                            .flatMap(channel -> channel.createMessage("Thiên tài IT, Chúa tể coder, IQ 300, Bill Gate VN, Kẻ huỷ diệt mọi dòng code a.k.a Bằng Nguyễn"));
+                }
+                return Mono.empty();
+            }).then();
 
-                                // file log API result from user using this command
-                                FileWriter fw = new FileWriter("D:/discord_bot_log_api/output_"+author.get().getGlobalName().get()+".json");
-                                fw.write(result);
-                                fw.close();
-
-                                return message.getChannel()
-                                        .flatMap(channel -> channel.createMessage(spec -> {
-                                            try {
-                                                spec.addFile("image.png", new URL((String) json.get("file_url")).openStream());
-                                            } catch (IOException e) {
-                                                throw new RuntimeException(e);
-                                            }
-                                        }));
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
+            // TODO: --------------- mail commands ---------------
+            // TODO: mail
+            Mono<Void> handleMailCommand = gateway.on(MessageCreateEvent.class, event -> {
+                Message message = event.getMessage();
+                String[] msgSplit = message.getContent().split(" ", 2);
+                if(msgSplit.length > 1 && msgSplit[0].equalsIgnoreCase(prefix + "mailLogReg")){
+                    // validate email
+                    Pattern pattern = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
+                    Matcher matcher = pattern.matcher(msgSplit[1]);
+                    String id = message.getAuthor().get().getId().asString();
+                    String name = message.getAuthor().get().getGlobalName().get();
+                    if(matcher.matches()){  // if match
+                        if(guildServices.checkExistMail(msgSplit[1])){
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage("Mail này đã được đăng ký trước đó. Hãy kiểm tra lại mail!!"));
                         }
+
+                        if(guildServices.checkExist(id)){
+                            guildServices.updateMail(id, msgSplit[1]);
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("Đã cập nhật đăng ký thành công logging qua mail\n");
+                            sb.append("Mail bạn đã đăng ký: " + msgSplit[1] + "\n");
+                            sb.append("ID discord tác giả: " + id + "\n\n\n");
+                            sb.append("Thân gửi\n");
+                            sb.append("Bot của Bằng");
+                            // send mail
+                            MailUtils.sendMail("mybot.system@gmail.com", msgSplit[1], "Cập nhật đăng ký logging qua mail", sb.toString());
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage("Trạng thái - cập nhật\nĐã gửi mail thông báo!!"));
+                        } else {
+                            guildServices.insertMail(id, name, msgSplit[1]);
+                            StringBuilder sb = new StringBuilder();
+                            sb.append("Đã đăng ký thành công logging qua mail\n");
+                            sb.append("Mail bạn đã đăng ký: " + msgSplit[1] + "\n");
+                            sb.append("ID discord tác giả: " + id + "\n\n\n");
+                            sb.append("Thân gửi\n");
+                            sb.append("Bot của Bằng");
+                            MailUtils.sendMail("mybot.system@gmail.com", msgSplit[1], "Đăng ký logging qua mail", sb.toString());
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage("Trạng thái - Đăng ký\nĐã gửi mail thông báo!!"));
+                        }
+                    } else {
+                        return message.getChannel()
+                                .flatMap(channel -> channel.createMessage("Giá trị đang truyền vào đang không phải là mail, mời nhập lại"));
+                    }
+                }
+                if(msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "mailLogReg")){
+                    return message.getChannel()
+                            .flatMap(channel -> channel.createMessage("Để đăng ký logging qua mail, hãy dùng lệnh ^mail {mail_của_bạn}"));
+                }
+                return Mono.empty();
+            }).then();
+
+            // TODO: --------------- server commands ---------------
+            // TODO: server
+            Mono<Void> handleTestCommand = gateway.on(MessageCreateEvent.class, event -> {
+                Message message = event.getMessage();
+                if(message.getContent().equalsIgnoreCase(prefix + "server")){
+                    Guild guild = guildServices.getJoinedGuildInfo(event.getGuild().block().getName(), event.getGuild().block().getId().asString());
+                    if(guild != null){
+                        //String guildIcon = event.getGuild().block().getIconUrl().orElse((Object)null);
+                        EmbedCreateSpec embed = EmbedCreateSpec.builder()
+                                .title(guild.getGuildName())
+                                .addField(":homes: Tên server: ", guild.getGuildName(),  false)
+                                .addField(":exclamation: Prefix: ", guild.getPrefix(),  true)
+                                .build();
+                        return message.getChannel()
+                                .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder()
+                                        .addEmbed(embed)
+                                        .build()));
                     }
                 }
                 return Mono.empty();
             }).then();
 
+            // TODO: --------------- league commands ---------------
             // TODO: league API from lmssplus (đang phát triển)
             Mono<Void> handleLeagueCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
                 String[] msgSplit = message.getContent().split(" ",2);
-                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase("!lmss")){
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "lmss")){
                     List<Mastery> masteries = null;
                     HttpResponse<String> summonerInfo = leagueServices.getSummonerInfo(msgSplit[1].replace(" ", "+"));
                     if (summonerInfo != null) {
@@ -333,7 +381,7 @@ public class Program{
                                         .url("https://lmssplus.com/profile/" + summoner.getSummonerName().replace(" ", "+"))
                                         .thumbnail("https://ddragon.leagueoflegends.com/cdn/13.13.1/img/profileicon/" + summoner.getImg())
                                         .description(summoner.getSummonerId())
-                                        .addField("⋅⋅* Tên người chơi", summoner.getSummonerName(), true)
+                                        .addField("Tên người chơi", summoner.getSummonerName(), true)
                                         .addField("Cấp", summoner.getLevel(), true)
                                         .addField("Rank", rankStr, true)
                                         .addField("\u200B", "\u200B", false)
@@ -366,15 +414,250 @@ public class Program{
                 return Mono.empty();
             }).then();
 
-            Mono<Void> handleAnimeInfoCommand = gateway.on(MessageCreateEvent.class, event -> {
+            // TODO: --------------- anime commands ---------------
+            // TODO: pic.re anime pics API
+            Mono<Void> handlePicreCommand = gateway.on(MessageCreateEvent.class, event -> {
+                Message message = event.getMessage();
+                if(message.getContent().equalsIgnoreCase(prefix + "picre")){
+                    Optional<User> author = message.getAuthor();
+                    HttpResponse<String> response = animeServices.getAnimePicrePic();
+                    if(author.isPresent()) {
+                        if (response != null) {
+                            try {
+                                String result = response.body();
+                                JSONObject json = new JSONObject(result);
+
+                                // file log API result from user using this command
+                                FileWriter fw = new FileWriter("D:/discord_bot_log_api/output_"+author.get().getGlobalName().get()+".json");
+                                fw.write(result);
+                                fw.close();
+
+                                return message.getChannel()
+                                        .flatMap(channel -> channel.createMessage(spec -> {
+                                            try {
+                                                spec.addFile("image.png", new URL((String) json.get("file_url")).openStream());
+                                            } catch (IOException e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        }));
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                    }
+                }
+                return Mono.empty();
+            }).then();
+
+            // TODO: waifu.pics anime pics API
+            Mono<Void> handleWaifuCommand = gateway.on(MessageCreateEvent.class, event -> {
+                Message message = event.getMessage();
+                String[] sfwCategory = {"waifu", "neko", "shinobu", "megumin", "bully", "cuddle", "cry", "hug", "awoo", "kiss", "lick", "pat", "smug", "bonk", "yeet", "blush", "smile", "wave", "highfive", "handhold", "nom", "bite", "glomp", "slap", "kill", "kick", "happy", "wink", "poke", "dance", "cringe"};
+                String[] nsfwCategory = {"waifu", "neko", "trap", "blowjob"};
+                String[] msgSplit = message.getContent().split(" ",2);
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "waifupic")){
+                    if("sfw".equals(msgSplit[1])){
+                        int max = sfwCategory.length;
+                        int min = 1;
+                        Random random = new Random();
+                        int result = (random.nextInt(max - min + 1) + min) - 1;
+                        HttpResponse<String> response = animeServices.getAnimeWaifuPic((String) msgSplit[1], (String) sfwCategory[result]);
+                        if (response != null){
+                            JSONObject jsonResponse = new JSONObject((String) response.body());
+                            String url = jsonResponse.getString("url");
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage(spec -> {
+                                        try {
+                                            spec.addFile("image.png", new URL(url).openStream());
+                                        } catch (IOException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    }));
+                        }
+                    } else if ("nsfw".equals(msgSplit[1])){
+                        int max = nsfwCategory.length;
+                        int min = 1;
+                        Random random = new Random();
+                        int result = (random.nextInt(max - min + 1) + min) - 1;
+                        HttpResponse<String> response = animeServices.getAnimeWaifuPic((String) msgSplit[1], (String) nsfwCategory[result]);
+                        if (response != null) {
+                            JSONObject jsonResponse = new JSONObject((String) response.body());
+                            String url = jsonResponse.getString("url");
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage(spec -> {
+                                        try {
+                                            spec.addFile("image.png", new URL(url).openStream());
+                                        } catch (IOException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    }));
+                        }
+                    } else {
+                        return message.getChannel()
+                                .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: ^waifupic {sfw|nsfw}"));
+                    }
+                }
+                if (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "waifupic")){
+                    return message.getChannel()
+                            .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: ^waifupic {sfw|nsfw}"));
+                }
+                return Mono.empty();
+            }).then();
+
+            // TODO: Jikan
+            Mono<Void> handleJikanCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
                 String[] msgSplit = message.getContent().split(" ",2);
-                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase("!animeinfo")){
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikansfw")){
+                    HttpResponse<String> response = animeServices.getAnimeInfo(msgSplit[1].replace(" ", "+"), "sfw");
+                    if(response != null){
+                        JSONObject jsonResponse = new JSONObject((String) response.body());
+                        JSONArray jsonData = new JSONArray((JSONArray) jsonResponse.get("data"));
+                        if(jsonData.length() != 0) {
+                            JSONObject objData = new JSONObject(jsonData.get(0).toString());
+                            JSONObject images = new JSONObject(objData.get("images").toString());
 
+                            String img = images.getJSONObject("jpg").getString("large_image_url");
+                            String[] duration = objData.getString("duration").split(" ",3);
+                            List<String> genres = new ArrayList<>();
+                            JSONArray genresArr = objData.getJSONArray("genres");
+                            for(int i = 0; i < genresArr.length(); i++){
+                                JSONObject obj = genresArr.getJSONObject(i);
+                                genres.add((String) obj.getString("name"));
+                            }
+                            List<String> themes = new ArrayList<>();
+                            JSONArray themesArr = objData.getJSONArray("themes");
+                            for(int i = 0; i < themesArr.length(); i++){
+                                JSONObject obj = themesArr.getJSONObject(i);
+                                themes.add((String) obj.getString("name"));
+                            }
+
+                            Anime anime = new Anime();
+                            anime.setTitle((String) objData.getString("title"));
+                            anime.setId(String.valueOf(objData.getInt("mal_id")));
+                            anime.setUrl(objData.getString("url"));
+                            anime.setImg(img);
+                            anime.setStatus((String) objData.getString("status"));
+                            anime.setDuration(duration[0]+" "+duration[1]);
+                            anime.setEpisodes(objData.getInt("episodes"));
+                            anime.setSynopsis((String) objData.getString("synopsis"));
+                            anime.setGenres(String.join(", ", genres));
+                            anime.setThemes(String.join(", ", themes));
+
+                            EmbedCreateSpec embed = EmbedCreateSpec.builder()
+                                    .title(anime.getTitle())
+                                    .url(anime.getUrl())
+                                    .thumbnail(anime.getImg())
+                                    .description(anime.getSynopsis())
+                                    .addField("Status :", anime.getStatus(), false)
+                                    .addField(":film_frames: Episodes :", String.valueOf(anime.getEpisodes()), true)
+                                    .addField(":stopwatch: Duration :", anime.getDuration(), true)
+                                    .addField("Genres:", anime.getGenres(), false)
+                                    .addField("Themes:", anime.getThemes(), false)
+                                    .build();
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder().addEmbed(embed).build()));
+                        } else {
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage("Không có thông tin về anime tên \""+ (String) msgSplit[1] +"\""));
+                        }
+                    }
                 }
-                if (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase("!animeinfo")){
+                if (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikansfw")){
                     return message.getChannel()
-                            .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: !animeinfo {tựa_anime}"));
+                            .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: !jikan {tựa_anime}"));
+                }
+                return Mono.empty();
+            }).then();
+
+            // TODO: --------------- IMDB commands ---------------
+            // TODO: IMDB API
+            Mono<Void> handleIMDBCommand = gateway.on(MessageCreateEvent.class, event -> {
+                Message message = event.getMessage();
+                String[] msgSplit = message.getContent().split(" ",2);
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "imdb")){
+                    IMDb imdb = new IMDb();
+                    HttpResponse<String> response = imdbServices.getMovieInfo(StringUtils.IMDB_API_KEY, (String) msgSplit[1]);
+                    if(response != null){
+                        JSONObject jsonIMDB = new JSONObject((String) response.body());
+                        if(!jsonIMDB.has("Error")){
+                            if (jsonIMDB.has("imdbID")){
+                                imdb.setImdbId((String) jsonIMDB.get("imdbID"));
+                            }
+                            if (jsonIMDB.has("Title")) {
+                                imdb.setTitle((String) jsonIMDB.get("Title"));
+                            }
+                            if (jsonIMDB.has("Year")) {
+                                imdb.setYear((String) jsonIMDB.get("Year"));
+                            }
+                            if (jsonIMDB.has("Released")) {
+                                imdb.setReleased((String) jsonIMDB.get("Released"));
+                            }
+                            if (jsonIMDB.has("Runtime")) {
+                                imdb.setRuntime((String) jsonIMDB.get("Runtime"));
+                            }
+                            if (jsonIMDB.has("Genre")) {
+                                imdb.setGenre((String) jsonIMDB.get("Genre"));
+                            }
+                            if (jsonIMDB.has("Director")) {
+                                imdb.setDirector((String) jsonIMDB.get("Director"));
+                            }
+                            if (jsonIMDB.has("Actors")) {
+                                imdb.setActors((String) jsonIMDB.get("Actors"));
+                            }
+                            if (jsonIMDB.has("Plot")) {
+                                imdb.setPlot((String) jsonIMDB.get("Plot"));
+                            }
+                            if (jsonIMDB.has("Language")) {
+                                imdb.setLanguage((String) jsonIMDB.get("Language"));
+                            }
+                            if (jsonIMDB.has("Poster")) {
+                                imdb.setPoster((String) jsonIMDB.get("Poster"));
+                            }
+                            if (jsonIMDB.has("imdbRating")) {
+                                imdb.setImdbRating((String) jsonIMDB.get("imdbRating"));
+                            }
+                            if (jsonIMDB.has("imdbVotes")) {
+                                imdb.setImdbVotes((String) jsonIMDB.get("imdbVotes"));
+                            }
+                            if (jsonIMDB.has("BoxOffice")) {
+                                imdb.setBoxOffice((String) jsonIMDB.get("BoxOffice"));
+                            }
+                            if (jsonIMDB.has("Type")) {
+                                imdb.setType((String) jsonIMDB.get("Type"));
+                            }
+
+                            EmbedCreateSpec embed = EmbedCreateSpec.builder()
+                                    .color(Color.of(255,202,204))
+                                    .title(imdb.getTitle())
+                                    .description(imdb.getPlot())
+                                    .thumbnail(imdb.getPoster())
+                                    .addField(":star: IMDB Rating", imdb.getImdbRating() + "/10", true)
+                                    .addField(":star: IMDB Vote", imdb.getImdbVotes(), true)
+                                    .addField(":money_with_wings: Box Office", imdb.getBoxOffice() == null ? "NaN" : imdb.getBoxOffice(), false)
+                                    .addField(":cinema: Director", imdb.getDirector(), false)
+                                    .addField(":film_frames: Actor", imdb.getActors(), false)
+                                    .addField(":stopwatch: Runtime", imdb.getRuntime(), true)
+                                    .addField(":clapper: Type", imdb.getType(), true)
+                                    .addField(":arrow_right: Genres", imdb.getGenre(), false)
+                                    .addField(":abc: Language", imdb.getLanguage(), false)
+                                    .addField(":calendar_spiral: Released", imdb.getReleased(), false)
+                                    .build();
+
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage(embed));
+                        } else {
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage("Không có thông tin của phim bạn tìm hoặc lỗi API, vui lòng thử lại"));
+                        }
+                    } else {
+                        return message.getChannel()
+                                .flatMap(channel -> channel.createMessage("Không có thông tin của phim bạn tìm hoặc lỗi API"));
+                    }
+                }
+                if (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "imdb")){
+                    return message.getChannel()
+                            .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: !imdb {tên_phim}"));
                 }
                 return Mono.empty();
             }).then();
@@ -450,9 +733,15 @@ public class Program{
                     .and(handlePingCommand)
                     .and(handleAvatarCommand)
                     .and(handleInfoCommand)
+                    .and(handleTestCommand)
+                    .and(handleMeCommand)
+                    .and(handleMailCommand)
                     // anime command
                     .and(handlePicreCommand)
-                    .and(handleAnimeInfoCommand)
+                    .and(handleWaifuCommand)
+                    .and(handleJikanCommand)
+                    // imdb command
+                    .and(handleIMDBCommand)
                     // league command
                     .and(handleLeagueCommand)
                     // voice command
