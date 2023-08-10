@@ -1,5 +1,5 @@
 # DiscordBot
-Source code của bot discord vô tri nhất vũ trụ!! Bot chạy bằng OpenJDK 20.0.1\
+Source code của bot discord vô tri nhất vũ trụ!! Bot chạy bằng OpenJDK 20.0.1
 
 Các thư viện bot đang sử dụng:
 - [Discord4J 3.3.0.M2](https://mvnrepository.com/artifact/com.discord4j/discord4j-core/3.3.0-M2)
