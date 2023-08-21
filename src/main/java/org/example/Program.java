@@ -5,6 +5,7 @@ import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers;
 import com.sedmelluq.discord.lavaplayer.track.playback.NonAllocatingAudioFrameBuffer;
+
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
 import discord4j.core.event.domain.lifecycle.ReadyEvent;
@@ -12,34 +13,43 @@ import discord4j.core.event.domain.message.MessageCreateEvent;
 import discord4j.core.object.VoiceState;
 import discord4j.core.object.entity.*;
 import discord4j.core.object.entity.channel.AudioChannel;
+import discord4j.core.spec.EmbedCreateFields;
 import discord4j.core.spec.EmbedCreateSpec;
 import discord4j.core.spec.MessageCreateSpec;
 import discord4j.rest.util.Color;
+import discord4j.rest.util.Image;
 import discord4j.voice.AudioProvider;
-import org.example.entity.Discord.Guild;
+
+import org.apache.http.client.utils.DateUtils;
+import org.example.entity.Discord.Google;
 import org.example.entity.leagueoflegends.Champion;
 import org.example.entity.leagueoflegends.Mastery;
 import org.example.entity.leagueoflegends.Rank;
 import org.example.entity.leagueoflegends.Summoner;
 import org.example.entity.movie.Anime;
 import org.example.entity.movie.IMDb;
+
 import org.example.interfaces.RankType;
+
 import org.example.provider.LavaPlayerAudioProvider;
+
 import org.example.scheduler.TrackScheduler;
-import org.example.services.AnimeServices;
-import org.example.services.GuildServices;
-import org.example.services.IMDBServices;
-import org.example.services.LeagueServices;
+
+import org.example.services.*;
+
 import org.example.utils.MailUtils;
 import org.example.utils.StringUtils;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
+
 import reactor.core.publisher.Mono;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.net.http.HttpResponse;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -54,6 +64,7 @@ public class Program{
         AnimeServices animeServices = new AnimeServices();
         IMDBServices imdbServices = new IMDBServices();
         GuildServices guildServices = new GuildServices();
+        GoogleServices googleServices = new GoogleServices();
 
         // Creates AudioPlayer instances and translates URLs to AudioTrack instances
         final AudioPlayerManager playerManager = new DefaultAudioPlayerManager();
@@ -88,12 +99,24 @@ public class Program{
                     if(mentionedMembers.size() == 0){
                         Optional<User> author = message.getAuthor();
                         if(author.isPresent()) {
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^avatar");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage(author.get().getAvatarUrl() + "?size=1024"));
                         }
                     } else if(mentionedMembers.size() == 1){
                         Optional<PartialMember> member = Optional.ofNullable(mentionedMembers.get(0));
                         if(member.isPresent()){
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^avatar");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage(member.get().getAvatarUrl() + "?size=1024"));
                         }
@@ -108,6 +131,12 @@ public class Program{
                 Message message = event.getMessage();
 
                 if (message.getContent().equalsIgnoreCase(prefix + "ping")) {
+                    String id = message.getAuthor().get().getId().asString();
+                    String name = message.getAuthor().get().getGlobalName().get();
+                    Date date = Calendar.getInstance().getTime();
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String dateStr = sdf.format(date);
+                    guildServices.insertLog(id, name, dateStr, "^ping");
                     return message.getChannel()
                             .flatMap(channel -> channel.createMessage("Pong!"));
                 }
@@ -149,6 +178,12 @@ public class Program{
                             .addField("- inline field", "value", true)
                             .addField("- inline field", "value", true)
                             .build();
+                    String id = message.getAuthor().get().getId().asString();
+                    String name = message.getAuthor().get().getGlobalName().get();
+                    Date date = Calendar.getInstance().getTime();
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String dateStr = sdf.format(date);
+                    guildServices.insertLog(id, name, dateStr, "^info");
                     return message.getChannel()
                             .flatMap(channel -> channel.createMessage(embed));
                 }
@@ -159,6 +194,12 @@ public class Program{
             Mono<Void> handleMeCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
                 if(message.getContent().equalsIgnoreCase(prefix + "author")){
+                    String id = message.getAuthor().get().getId().asString();
+                    String name = message.getAuthor().get().getGlobalName().get();
+                    Date date = Calendar.getInstance().getTime();
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    String dateStr = sdf.format(date);
+                    guildServices.insertLog(id, name, dateStr, "^author");
                     return message.getChannel()
                             .flatMap(channel -> channel.createMessage("Thiên tài IT, Chúa tể coder, IQ 300, Bill Gate VN, Kẻ huỷ diệt mọi dòng code a.k.a Bằng Nguyễn"));
                 }
@@ -192,6 +233,10 @@ public class Program{
                             sb.append("Bot của Bằng");
                             // send mail
                             MailUtils.sendMail("mybot.system@gmail.com", msgSplit[1], "Cập nhật đăng ký logging qua mail", sb.toString());
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^ping");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage("Trạng thái - cập nhật\nĐã gửi mail thông báo!!"));
                         } else {
@@ -203,6 +248,10 @@ public class Program{
                             sb.append("Thân gửi\n");
                             sb.append("Bot của Bằng");
                             MailUtils.sendMail("mybot.system@gmail.com", msgSplit[1], "Đăng ký logging qua mail", sb.toString());
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^ping");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage("Trạng thái - Đăng ký\nĐã gửi mail thông báo!!"));
                         }
@@ -220,17 +269,27 @@ public class Program{
 
             // TODO: --------------- server commands ---------------
             // TODO: server
-            Mono<Void> handleTestCommand = gateway.on(MessageCreateEvent.class, event -> {
+            Mono<Void> handleServerCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
                 if(message.getContent().equalsIgnoreCase(prefix + "server")){
-                    Guild guild = guildServices.getJoinedGuildInfo(event.getGuild().block().getName(), event.getGuild().block().getId().asString());
+                    Guild guild = message.getGuild().block();
                     if(guild != null){
-                        //String guildIcon = event.getGuild().block().getIconUrl().orElse((Object)null);
                         EmbedCreateSpec embed = EmbedCreateSpec.builder()
-                                .title(guild.getGuildName())
-                                .addField(":homes: Tên server: ", guild.getGuildName(),  false)
-                                .addField(":exclamation: Prefix: ", guild.getPrefix(),  true)
+                                .title(guild.getName().toString())
+                                .thumbnail(guild.getIconUrl(Image.Format.GIF).get())
+                                .addField(":homes: Tên server: ", guild.getName(),  false)
+                                .addField("Admin: ", "<@"+guild.getOwnerId().asString()+">",  false)
+                                .addField("Premium: ", guild.getPremiumTier().toString(),  true)
+//                                .addField("Premium: ", ,  false)
+                                .addField("Số thành viên: ", String.valueOf(guild.getMemberCount()),  false)
                                 .build();
+
+                        String id = message.getAuthor().get().getId().asString();
+                        String name = message.getAuthor().get().getGlobalName().get();
+                        Date date = Calendar.getInstance().getTime();
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        String dateStr = sdf.format(date);
+                        guildServices.insertLog(id, name, dateStr, "^server");
                         return message.getChannel()
                                 .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder()
                                         .addEmbed(embed)
@@ -392,6 +451,12 @@ public class Program{
                                         .timestamp(Instant.now())
                                         .build();
 
+                                String id = message.getAuthor().get().getId().asString();
+                                String name = message.getAuthor().get().getGlobalName().get();
+                                Date date = Calendar.getInstance().getTime();
+                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                                String dateStr = sdf.format(date);
+                                guildServices.insertLog(id, name, dateStr, "^lmss");
                                 return message.getChannel()
                                         .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder()
                                                 .content("Đã tìm xong người chơi " + summoner.getSummonerName())
@@ -432,6 +497,12 @@ public class Program{
                                 fw.write(result);
                                 fw.close();
 
+                                String id = message.getAuthor().get().getId().asString();
+                                String name = message.getAuthor().get().getGlobalName().get();
+                                Date date = Calendar.getInstance().getTime();
+                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                                String dateStr = sdf.format(date);
+                                guildServices.insertLog(id, name, dateStr, "^picre");
                                 return message.getChannel()
                                         .flatMap(channel -> channel.createMessage(spec -> {
                                             try {
@@ -465,6 +536,12 @@ public class Program{
                         if (response != null){
                             JSONObject jsonResponse = new JSONObject((String) response.body());
                             String url = jsonResponse.getString("url");
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^waifu sfw");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage(spec -> {
                                         try {
@@ -483,6 +560,12 @@ public class Program{
                         if (response != null) {
                             JSONObject jsonResponse = new JSONObject((String) response.body());
                             String url = jsonResponse.getString("url");
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^waifu nsfw");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage(spec -> {
                                         try {
@@ -508,7 +591,7 @@ public class Program{
             Mono<Void> handleJikanCommand = gateway.on(MessageCreateEvent.class, event -> {
                 Message message = event.getMessage();
                 String[] msgSplit = message.getContent().split(" ",2);
-                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikansfw")){
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikananime")){
                     HttpResponse<String> response = animeServices.getAnimeInfo(msgSplit[1].replace(" ", "+"), "sfw");
                     if(response != null){
                         JSONObject jsonResponse = new JSONObject((String) response.body());
@@ -555,6 +638,12 @@ public class Program{
                                     .addField("Genres:", anime.getGenres(), false)
                                     .addField("Themes:", anime.getThemes(), false)
                                     .build();
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^jikananime");
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder().addEmbed(embed).build()));
                         } else {
@@ -563,7 +652,71 @@ public class Program{
                         }
                     }
                 }
-                if (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikansfw")){
+
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikanmanga")){
+                    HttpResponse<String> response = animeServices.getMangaInfo(msgSplit[1].replace(" ", "+"));
+                    if(response != null){
+                        JSONObject jsonResponse = new JSONObject((String) response.body());
+                        JSONArray jsonData = new JSONArray((JSONArray) jsonResponse.get("data"));
+                        if(jsonData.length() != 0) {
+                            JSONObject objData = new JSONObject(jsonData.get(0).toString());
+                            JSONObject images = new JSONObject(objData.get("images").toString());
+
+                            String img = images.getJSONObject("jpg").getString("large_image_url");
+                            List<String> genres = new ArrayList<>();
+                            JSONArray genresArr = objData.getJSONArray("genres");
+                            for(int i = 0; i < genresArr.length(); i++){
+                                JSONObject obj = genresArr.getJSONObject(i);
+                                genres.add((String) obj.getString("name"));
+                            }
+                            List<String> themes = new ArrayList<>();
+                            JSONArray themesArr = objData.getJSONArray("themes");
+                            for(int i = 0; i < themesArr.length(); i++){
+                                JSONObject obj = themesArr.getJSONObject(i);
+                                themes.add((String) obj.getString("name"));
+                            }
+
+                            Anime anime = new Anime();
+                            anime.setTitle((String) objData.getString("title"));
+                            anime.setId(String.valueOf(objData.getInt("mal_id")));
+                            anime.setUrl(objData.getString("url"));
+                            anime.setImg(img);
+                            anime.setStatus((String) objData.getString("status"));
+                            anime.setSynopsis((String) objData.getString("synopsis"));
+                            anime.setChapters((Integer) objData.getInt("chapters"));
+                            anime.setVolumes((Integer) objData.getInt("volumes"));
+                            anime.setGenres(String.join(", ", genres));
+                            anime.setThemes(String.join(", ", themes));
+
+                            EmbedCreateSpec embed = EmbedCreateSpec.builder()
+                                    .title(anime.getTitle())
+                                    .url(anime.getUrl())
+                                    .thumbnail(anime.getImg())
+                                    .description(anime.getSynopsis())
+                                    .addField("Status :", anime.getStatus(), false)
+                                    .addField("Chapters : ", anime.getChapters() != null ? anime.getChapters().toString() : "NaN", true)
+                                    .addField("Volumes : ", anime.getVolumes() != null ? anime.getVolumes().toString() : "NaN", true)
+                                    .addField("Genres :", anime.getGenres(), false)
+                                    .addField("Themes :", anime.getThemes(), false)
+                                    .build();
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^jikanmanga");
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder().addEmbed(embed).build()));
+                        } else {
+                            return message.getChannel()
+                                    .flatMap(channel -> channel.createMessage("Không có thông tin về anime tên \""+ (String) msgSplit[1] +"\""));
+                        }
+                    }
+                }
+
+                if ((msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikananime")) ||
+                        (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "jikanmanga"))
+                ){
                     return message.getChannel()
                             .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: !jikan {tựa_anime}"));
                 }
@@ -644,6 +797,13 @@ public class Program{
                                     .addField(":calendar_spiral: Released", imdb.getReleased(), false)
                                     .build();
 
+                            String id = message.getAuthor().get().getId().asString();
+                            String name = message.getAuthor().get().getGlobalName().get();
+                            Date date = Calendar.getInstance().getTime();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                            String dateStr = sdf.format(date);
+                            guildServices.insertLog(id, name, dateStr, "^imdb");
+
                             return message.getChannel()
                                     .flatMap(channel -> channel.createMessage(embed));
                         } else {
@@ -658,6 +818,80 @@ public class Program{
                 if (msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "imdb")){
                     return message.getChannel()
                             .flatMap(channel -> channel.createMessage("Để sử dụng được lệnh này, cần nhập đúng format (VD: !imdb {tên_phim}"));
+                }
+                return Mono.empty();
+            }).then();
+
+            // TODO: --------------- google commands ---------------
+            // TODO: google
+            Mono<Void> handleGoogleCommand = gateway.on(MessageCreateEvent.class, event -> {
+                Message message = event.getMessage();
+                String[] msgSplit = message.getContent().split(" ", 2);
+                List<Google> ggList = new ArrayList<Google>();
+
+                if(msgSplit.length != 1 && msgSplit[0].equalsIgnoreCase(prefix + "google")){
+                    HttpResponse<String> response = googleServices.getGoogleSearchResult(msgSplit[1]);
+
+                    if(response != null){
+                        JSONObject jsonResponse = new JSONObject((String) response.body());
+                        JSONArray jsonItemResultArr = new JSONArray((JSONArray) jsonResponse.get("organic"));
+                        for(int i = 0; i < jsonItemResultArr.length(); i++){
+                            String title = ((JSONObject) jsonItemResultArr.get(i)).getString("title");
+                            String link = ((JSONObject) jsonItemResultArr.get(i)).getString("link");
+                            int position = ((JSONObject) jsonItemResultArr.get(i)).getInt("position");
+
+                            Google google = new Google();
+                            google.setPosition(position);
+                            google.setTitle(title);
+                            google.setLink(link);
+
+                            ggList.add(google);
+                        }
+
+                        List<EmbedCreateFields.Field> fieldList = new ArrayList<>();
+                        EmbedCreateFields.Field[] fieldArr = new EmbedCreateFields.Field[ggList.size()];
+
+                        for(Google gg : ggList){
+                            fieldList.add(new EmbedCreateFields.Field() {
+                                @Override
+                                public String name() {
+                                    return gg.getPosition() + ". " + gg.getTitle();
+                                }
+
+                                @Override
+                                public String value() {
+                                    return gg.getLink();
+                                }
+
+                                @Override
+                                public boolean inline() {
+                                    return false;
+                                }
+                            });
+                        }
+                        EmbedCreateSpec embed = EmbedCreateSpec.builder()
+                                .color(Color.of(232, 147, 207))
+                                .addFields(fieldList.toArray(fieldArr))
+                                .build();
+
+                        String id = message.getAuthor().get().getId().asString();
+                        String name = message.getAuthor().get().getGlobalName().get();
+                        Date date = Calendar.getInstance().getTime();
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                        String dateStr = sdf.format(date);
+                        guildServices.insertLog(id, name, dateStr, "^google");
+
+                        return message.getChannel()
+                                .flatMap(channel -> channel.createMessage(MessageCreateSpec.builder()
+                                        .content("Kết quả bạn tìm kiếm: ")
+                                        .addEmbed(embed)
+                                        .build()));
+                    }
+                }
+
+                if(msgSplit.length == 1 && msgSplit[0].equalsIgnoreCase(prefix + "google")){
+                    return message.getChannel()
+                            .flatMap(channel -> channel.createMessage("Lệnh tra cứu google: ^google {truy_vấn}"));
                 }
                 return Mono.empty();
             }).then();
@@ -733,8 +967,9 @@ public class Program{
                     .and(handlePingCommand)
                     .and(handleAvatarCommand)
                     .and(handleInfoCommand)
-                    .and(handleTestCommand)
+                    .and(handleServerCommand)
                     .and(handleMeCommand)
+                    // mail command
                     .and(handleMailCommand)
                     // anime command
                     .and(handlePicreCommand)
@@ -742,6 +977,8 @@ public class Program{
                     .and(handleJikanCommand)
                     // imdb command
                     .and(handleIMDBCommand)
+                    // google command
+                    .and(handleGoogleCommand)
                     // league command
                     .and(handleLeagueCommand)
                     // voice command

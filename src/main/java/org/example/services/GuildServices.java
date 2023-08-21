@@ -3,6 +3,8 @@ package org.example.services;
 import org.example.entity.Discord.Guild;
 import org.example.impl.GuildImpl;
 
+import java.util.Date;
+
 public class GuildServices {
     private GuildImpl guildImpl;
 
@@ -28,5 +30,9 @@ public class GuildServices {
 
     public boolean checkExistMail(String mail){
         return guildImpl.checkExistMail(mail);
+    }
+
+    public void insertLog(String ID, String name, String date, String content){
+        guildImpl.insertLog(ID, name, date, content);
     }
 }

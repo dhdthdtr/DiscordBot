@@ -28,7 +28,7 @@ public class GuildImpl extends HibernateUtils {
             sb.append(" FROM [dbo].[tbl_joined_guild_info] as jg ");
             sb.append(" WHERE ");
             sb.append(" jg.ID = '" + guildID + "' ");
-            sb.append(" AND jg.server_name = '" + guildName + "' ");
+            sb.append(" AND jg.server_name = N'" + guildName + "' ");
             Query query = session.createSQLQuery(sb.toString());
             List<Object[]> result = query.list();
             if (result.size() > 0){
@@ -97,7 +97,7 @@ public class GuildImpl extends HibernateUtils {
             StringBuilder sb = new StringBuilder();
             sb.append(" INSERT INTO tbl_registered_mail (user_id, user_name, mail) VALUES (");
             sb.append(" '" + id + "'");
-            sb.append(" ,'" + name + "'");
+            sb.append(" ,N'" + name + "'");
             sb.append(" ,'" + mail + "'");
             sb.append(" )");
             Query query = session.createSQLQuery(sb.toString());
@@ -130,5 +130,27 @@ public class GuildImpl extends HibernateUtils {
             session.getTransaction().rollback();
         }
         return isExist;
+    }
+
+    public void insertLog(String ID, String name, String date, String content) {
+        Session session = null;
+        try {
+            session = getSessionFactory().getCurrentSession();
+            session.beginTransaction();
+
+            StringBuilder sb = new StringBuilder();
+            sb.append(" INSERT INTO [dbo].[tbl_user_log] (ID, user_global_name, log_date, log_content) VALUES (");
+            sb.append(" '" + ID + "'");
+            sb.append(",N'" + name + "'");
+            sb.append(",'" + date + "'");
+            sb.append(",'" + content + "'");
+            sb.append(" )");
+            Query query = session.createSQLQuery(sb.toString());
+            query.executeUpdate();
+            session.getTransaction().commit();
+        } catch (Exception e) {
+            e.printStackTrace();
+            session.getTransaction().rollback();
+        }
     }
 }

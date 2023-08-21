@@ -48,4 +48,18 @@ public class AnimeImpl {
         }
         return response;
     }
+
+    public HttpResponse<String> getMangaInfo(String name){
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.jikan.moe/v4/manga?q="+ name))
+                .method("GET", HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<String> response = null;
+        try {
+            response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
 }

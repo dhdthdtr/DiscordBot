@@ -8,6 +8,7 @@ public class StringUtils {
     public static String PASSWORD = "PASSWORD";
     public static String EMAIL_SERVER = "EMAIL_SERVER";
     public static String PWD_SERVER = "PWD_SERVER";
+    public static String SERPER_API_KEY = "SERPER_API_KEY";
 
     public String delStrNull(String s) {
         if(s != null || s.isEmpty()){

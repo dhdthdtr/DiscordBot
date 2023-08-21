@@ -21,4 +21,8 @@ public class AnimeServices {
     public HttpResponse<String> getAnimeWaifuPic(String type, String category){
         return animeImpl.getAnimeWaifuPic(type, category);
     }
+
+    public HttpResponse<String> getMangaInfo(String name){
+        return animeImpl.getMangaInfo(name);
+    }
 }

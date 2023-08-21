@@ -11,6 +11,8 @@ public class Anime {
     public String synopsis;
     public String genres;
     public String themes;
+    public Integer chapters;
+    public Integer volumes;
 
     public String getId() {
         return id;
@@ -90,5 +92,21 @@ public class Anime {
 
     public void setThemes(String themes) {
         this.themes = themes;
+    }
+
+    public Integer getChapters() {
+        return chapters;
+    }
+
+    public void setChapters(Integer chapters) {
+        this.chapters = chapters;
+    }
+
+    public Integer getVolumes() {
+        return volumes;
+    }
+
+    public void setVolumes(Integer volumes) {
+        this.volumes = volumes;
     }
 }
